@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Python Server
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: hybrid-voice-assistant-server
+    ports:
+      - "8765:8765"  # WebSocket port
+    environment:
+      - HA_HOST=${HA_HOST:-homeassistant.local}
+      - HA_PORT=${HA_PORT:-10700}
+      - WS_PORT=${WS_PORT:-8765}
+      - AUTH_TOKEN=${AUTH_TOKEN:-change-me}
+    volumes:
+      - ./server/config.yaml:/app/config.yaml
+      - ./server/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - hybrid-assistant-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Web Client (HTTPS server)
+  client:
+    image: nginx:alpine
+    container_name: hybrid-voice-assistant-client
+    ports:
+      - "8443:443"  # HTTPS for microphone access
+      - "8080:80"   # HTTP redirect
+    volumes:
+      - ./client:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    restart: unless-stopped
+    networks:
+      - hybrid-assistant-net
+    depends_on:
+      - server
+
+networks:
+  hybrid-assistant-net:
+    driver: bridge

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant Overlay</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="overlay-mode">
+
+    <!-- Background Iframe -->
+    <iframe id="overlay-iframe" class="overlay-iframe" src="about:blank"></iframe>
+
+    <!-- FAB Container -->
+    <div class="fab-container">
+
+        <!-- Status Indicator (Small Dot) -->
+        <div id="connection-status" class="status-dot disconnected"></div>
+
+        <!-- Main FAB Button -->
+        <button id="activate-fab" class="fab-button">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                    d="M12 1C10.3431 1 9 2.34315 9 4V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V4C15 2.34315 13.6569 1 12 1Z"
+                    stroke="currentColor" stroke-width="2" />
+                <path d="M5 10C5 10 5 14 12 14C19 14 19 10 19 10" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" />
+                <path d="M12 18V23M12 23H8M12 23H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+        </button>
+
+        <!-- Expanded State (Visualizer) -->
+        <div id="fab-visualizer" class="fab-visualizer hidden">
+            <div class="fab-pulse-ring"></div>
+            <div class="fab-pulse-ring"></div>
+            <div class="fab-pulse-ring"></div>
+        </div>
+    </div>
+
+    <!-- Settings Button -->
+    <button id="settings-btn" class="overlay-settings-btn" title="Settings">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+                d="M12.22 2H11.78C11.23 2 10.75 2.38 10.64 2.92L10.36 4.3C10.27 4.74 9.94 5.1 9.5 5.23L8.14 5.62C7.62 5.77 7.07 5.56 6.8 5.1L6.37 4.35C6.1 3.88 5.51 3.71 5.03 3.96L4.25 4.36C3.77 4.61 3.59 5.21 3.85 5.69L4.27 6.44C4.54 6.92 4.47 7.51 4.1 7.88L3.11 8.87C2.74 9.24 2.15 9.31 1.67 9.04L0.92 8.61C0.44 8.35 -0.16 8.53 -0.41 9.01L-0.81 9.8C-1.06 10.28 -0.89 10.87 -0.42 11.14L0.3 11.57C0.76 11.83 0.97 12.38 0.82 12.9L0.43 14.26C0.28 14.81 0.65 15.35 1.2 15.46L2.64 15.75C3.18 15.86 3.65 16.32 3.76 16.86L4.05 18.3C4.16 18.85 4.7 19.22 5.25 19.07L6.61 18.68C7.13 18.53 7.68 18.74 7.95 19.2L8.38 19.95C8.65 20.42 9.24 20.59 9.72 20.34L10.5 19.94C10.98 19.69 11.16 19.09 10.9 18.61L10.48 17.86C10.21 17.38 10.28 16.79 10.65 16.42L11.64 15.43C12.01 15.06 12.6 14.99 13.08 15.26L13.88 15.69C14.36 15.95 14.96 15.77 15.21 15.29L15.61 14.5C15.86 14.02 15.69 13.43 15.22 13.16L14.5 12.73C14.04 12.47 13.83 11.92 13.98 11.4L14.37 10.04C14.52 9.49 14.15 8.95 13.6 8.84L12.16 8.55C11.62 8.44 11.15 7.98 11.04 7.44L10.75 6H12.22"
+                fill="none" /> <!-- Placeholder path, using simpler circle for now as standard gear SVG is complex -->
+            <path
+                d="M19.14 12.94C19.11 12.32 19.11 11.69 19.14 11.07L21.41 9.35C21.61 9.19 21.66 8.91 21.54 8.68L19.38 4.93C19.25 4.7 18.97 4.6 18.72 4.69L16.06 5.74C15.51 5.32 14.91 4.98 14.28 4.71L13.88 1.93C13.84 1.67 13.61 1.48 13.35 1.49L9.04 1.49C8.78 1.49 8.56 1.68 8.52 1.93L8.12 4.71C7.48 4.98 6.89 5.33 6.34 5.75L3.68 4.69C3.43 4.59 3.15 4.69 3.02 4.92L0.86 8.68C0.74 8.91 0.79 9.19 0.99 9.35L3.26 11.07C3.29 11.69 3.29 12.32 3.26 12.94L0.99 14.66C0.79 14.82 0.74 15.1 0.86 15.33L3.02 19.09C3.15 19.32 3.43 19.42 3.68 19.32L6.34 18.26C6.89 18.68 7.49 19.03 8.12 19.3L8.52 22.08C8.56 22.34 8.78 22.53 9.04 22.53L13.35 22.53C13.61 22.53 13.83 22.34 13.87 22.08L14.28 19.31C14.91 19.04 15.5 18.69 16.05 18.27L18.72 19.33C18.97 19.43 19.25 19.33 19.38 19.10L21.54 15.34C21.66 15.11 21.61 14.83 21.41 14.67L19.14 12.94ZM11.2 15.35C9.32 15.35 7.8 13.83 7.8 11.95C7.8 10.07 9.32 8.55 11.2 8.55C13.08 8.55 14.6 10.07 14.6 11.95C14.6 13.83 13.08 15.35 11.2 15.35Z"
+                fill="currentColor" />
+        </svg>
+    </button>
+
+    <!-- Settings Panel (Same as index.html) -->
+    <div id="settings-panel" class="settings-panel glass hidden">
+        <h3>Configuration</h3>
+        <div class="setting-row">
+            <label for="ws-url">WebSocket URL:</label>
+            <input type="text" id="ws-url" value="ws://localhost:8765" placeholder="ws://localhost:8765">
+        </div>
+        <div class="setting-row">
+            <label for="overlay-url-input">Overlay URL:</label>
+            <input type="text" id="overlay-url-input" placeholder="http://homeassistant.local:8123/lovelace/0">
+        </div>
+        <div class="setting-row">
+            <label for="wake-word-select">Wake Word:</label>
+            <select id="wake-word-select">
+                <option value="ok_nabu">OK Nabu</option>
+                <option value="alexa_v0.1">Alexa</option>
+                <option value="hey_jarvis_v0.1">Hey Jarvis</option>
+                <option value="hey_rhasspy_v0.1">Hey Rhasspy</option>
+            </select>
+        </div>
+        <div class="setting-row">
+            <label for="auth-token">Auth Token:</label>
+            <input type="password" id="auth-token" placeholder="Optional authentication token">
+        </div>
+        <button id="save-settings" class="btn btn-primary">Save Settings</button>
+        <button id="close-settings" class="btn btn-secondary"
+            onclick="document.getElementById('settings-panel').classList.add('hidden')">Close</button>
+    </div>
+
+    <!-- Hidden proxied elements for app.js compatibility -->
+    <div class="hidden">
+        <button id="activate-btn"></button>
+        <div id="mic-visualizer"></div>
+        <div id="state-text"></div>
+        <div id="ws-status"></div>
+        <div id="wyoming-status"></div>
+        <div id="mic-status"></div>
+        <div id="debug-log"></div>
+    </div>
+
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="module" src="app.js?v=2"></script>
+</body>
+
+</html>

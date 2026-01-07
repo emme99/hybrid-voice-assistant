@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Voice Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🎙️ Voice Assistant</h1>
+            <p class="subtitle">Browser-based Home Assistant voice control</p>
+        </header>
+
+        <main>
+            <!-- Status Card -->
+            <div class="status-card glass">
+                <div class="status-row">
+                    <span class="label">WebSocket</span>
+                    <span id="ws-status" class="status-badge disconnected">Disconnected</span>
+                </div>
+                <div class="status-row">
+                    <span class="label">Wyoming</span>
+                    <span id="wyoming-status" class="status-badge disconnected">Unknown</span>
+                </div>
+                <div class="status-row">
+                    <span class="label">Microphone</span>
+                    <span id="mic-status" class="status-badge inactive">Inactive</span>
+                </div>
+            </div>
+
+            <!-- Microphone Visualizer -->
+            <div class="visualizer-container">
+                <div id="mic-visualizer" class="mic-visualizer">
+                    <div class="mic-icon">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M12 1C10.3431 1 9 2.34315 9 4V12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12V4C15 2.34315 13.6569 1 12 1Z"
+                                stroke="currentColor" stroke-width="2" />
+                            <path d="M5 10C5 10 5 14 12 14C19 14 19 10 19 10" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                            <path d="M12 18V23M12 23H8M12 23H16" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" />
+                        </svg>
+                    </div>
+                    <div class="pulse-rings">
+                        <div class="pulse-ring"></div>
+                        <div class="pulse-ring"></div>
+                        <div class="pulse-ring"></div>
+                    </div>
+                </div>
+                <p id="state-text" class="state-text">Click to activate</p>
+            </div>
+
+            <!-- Control Buttons -->
+            <div class="controls">
+                <button id="activate-btn" class="btn btn-primary">
+                    <span>Activate Voice Control</span>
+                </button>
+                <button id="settings-btn" class="btn btn-secondary">
+                    <span>⚙️ Settings</span>
+                </button>
+            </div>
+
+            <!-- Settings Panel -->
+            <div id="settings-panel" class="settings-panel glass hidden">
+                <h3>Configuration</h3>
+                <div class="setting-row">
+                    <label for="ws-url">WebSocket URL:</label>
+                    <input type="text" id="ws-url" value="ws://localhost:8765" placeholder="ws://localhost:8765">
+                </div>
+                <div class="setting-row">
+                    <label for="wake-word-select">Wake Word:</label>
+                    <select id="wake-word-select">
+                        <option value="ok_nabu">OK Nabu</option>
+                        <option value="alexa_v0.1">Alexa</option>
+                        <option value="hey_jarvis_v0.1">Hey Jarvis</option>
+                        <option value="hey_rhasspy_v0.1">Hey Rhasspy</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label for="auth-token">Auth Token:</label>
+                    <input type="password" id="auth-token" placeholder="Optional authentication token">
+                </div>
+                <button id="save-settings" class="btn btn-primary">Save Settings</button>
+            </div>
+
+            <!-- Debug Log -->
+            <div class="debug-panel glass">
+                <div class="debug-header">
+                    <h3>Debug Log</h3>
+                    <button id="clear-log-btn" class="btn-small">Clear</button>
+                </div>
+                <div id="debug-log" class="debug-log"></div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Hybrid Voice Assistant for Home Assistant</p>
+            <p class="credit">Built with openWakeWord & Wyoming Protocol</p>
+        </footer>
+    </div>
+
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.min.js"></script>
+
+    <!-- Application Scripts -->
+    <script type="module" src="app.js?v=2"></script>
+</body>
+
+</html>
