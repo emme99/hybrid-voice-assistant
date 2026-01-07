@@ -55,12 +55,31 @@ class ESPHomeProtocolHandler:
                  event = pb2.VoiceAssistantEventResponse()
                  event.ParseFromString(data)
                  _LOGGER.debug("Received VoiceAssistantEvent: type=%s", event.event_type)
-                 # Map events if needed?
+                 
+                 event_data = {}
+                 for item in event.data:
+                     event_data[item.name] = item.value
+                 
+                 # Forward to websocket
+                 if self.websocket_server:
+                     asyncio.run_coroutine_threadsafe(
+                         self.websocket_server.broadcast_message({
+                             "type": "voice_event",
+                             "event_type": event.event_type,
+                             "data": event_data
+                         }),
+                         self.loop
+                     )
 
             elif msg_type == 121: # VoiceAssistantConfigurationRequest
                  # No data in request
                  _LOGGER.info("Received VoiceAssistantConfigurationRequest")
                  self._handle_voice_assistant_configuration_request(None)
+
+            elif msg_type == 123: # VoiceAssistantSetConfiguration
+                 req = pb2.VoiceAssistantSetConfiguration()
+                 req.ParseFromString(data)
+                 self._handle_voice_assistant_set_configuration(req)
 
             elif msg_type == 65: # MediaPlayerCommandRequest
                  cmd = pb2.MediaPlayerCommandRequest()
@@ -154,22 +173,18 @@ class ESPHomeProtocolHandler:
         sel_pipeline.object_id = "pipeline"
         sel_pipeline.key = 2
         sel_pipeline.name = "Pipeline"
+        sel_pipeline.entity_category = 1 # CONFIG
         sel_pipeline.options.extend(["default"]) 
         self._send(sel_pipeline, 52) # Correct ID 52
 
-        # Add Select for Wake Word
-        sel_ww = pb2.ListEntitiesSelectResponse()
-        sel_ww.object_id = "wake_word"
-        sel_ww.key = 3
-        sel_ww.name = "Wake Word"
-        sel_ww.options.extend(["okay_nabu", "alexa"])
-        self._send(sel_ww, 52) # Correct ID 52
+
 
         # Add Switch for Mute
         sw_mute = pb2.ListEntitiesSwitchResponse()
         sw_mute.object_id = "mute"
         sw_mute.key = 4
         sw_mute.name = "Mute Microphone"
+        sw_mute.entity_category = 1 # CONFIG
         self._send(sw_mute, 17) # Correct ID 17
         
         # Add Assist Satellite Binary Sensor (or Sensor?)
@@ -178,6 +193,7 @@ class ESPHomeProtocolHandler:
         bs_assist.object_id = "assist_active"
         bs_assist.key = 5
         bs_assist.name = "Assist Active"
+        bs_assist.entity_category = 2 # DIAGNOSTIC
         self._send(bs_assist, 12)
 
         self._send(pb2.ListEntitiesDoneResponse(), 19) 
@@ -198,20 +214,44 @@ class ESPHomeProtocolHandler:
             msg.data = chunk
             self._send(msg, 106) # ID 106 
 
-    async def send_voice_event(self, event_type: int, data: dict = None):
-         pass
-
     def _handle_voice_assistant_configuration_request(self, req):
-         resp = pb2.VoiceAssistantConfigurationResponse()
-         # available_wake_words is a list of VoiceAssistantWakeWord
-         # We can leave it empty or add "okay nabu" if we want
-         ww = resp.available_wake_words.add()
-         ww.wake_word = "okay_nabu"
-         ww.trained_languages.append("en")
-         
-         resp.active_wake_words.append("okay_nabu")
-         resp.max_active_wake_words = 1
-         self._send(resp, 122)
+        """Handle request for current voice assistant configuration."""
+        resp = pb2.VoiceAssistantConfigurationResponse()
+        
+        # Populate available wake words
+        ww1 = resp.available_wake_words.add()
+        ww1.wake_word = "okay_nabu"
+        ww2 = resp.available_wake_words.add()
+        ww2.wake_word = "alexa"
+        
+        # Set active wake word (Default or currently selected)
+        #Ideally store this in self.current_wake_word
+        if not hasattr(self, 'current_wake_word'):
+            self.current_wake_word = "okay_nabu"
+        resp.active_wake_words.append(self.current_wake_word)
+        resp.max_active_wake_words = 1
+        
+        self._send(resp, 122)
+
+    def _handle_voice_assistant_set_configuration(self, req):
+        """Handle request to set voice assistant configuration."""
+        _LOGGER.info("Received SetConfiguration: wake_word=%s", req.active_wake_word)
+        self.current_wake_word = req.active_wake_word
+        
+        # Notify WebSocket client
+        if self.websocket_server:
+            asyncio.run_coroutine_threadsafe(
+                self.websocket_server.broadcast_message({
+                    "type": "config_update",
+                    "wake_word": self.current_wake_word
+                }),
+                self.loop
+            )
+        
+        # Send updated config back to HA to confirm
+        self._handle_voice_assistant_configuration_request(None)
+
+
 
     async def _play_media_url(self, url: str):
         """Fetch audio from URL and broadcast to client."""

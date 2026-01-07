@@ -530,6 +530,7 @@ body.overlay-mode {
 .status-dot.disconnected {
     background-color: var(--accent-error);
 }
+
 /* Overlay Settings Button */
 .overlay-settings-btn {
     position: absolute;
@@ -565,10 +566,42 @@ body.overlay-mode {
     width: 90%;
     max-width: 400px;
     background: rgba(20, 25, 45, 0.95);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    display: block; /* Override default flow */
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    display: block;
+    /* Override default flow */
 }
 
 .overlay-mode .settings-panel.hidden {
     display: none;
+}
+
+/* Text Bubble */
+.text-bubble {
+    position: absolute;
+    bottom: 120px;
+    right: 30px;
+    max-width: 300px;
+    padding: 1rem;
+    background: rgba(20, 25, 45, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    border-bottom-right-radius: 4px;
+    /* Callout shape */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    transform-origin: bottom right;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(10px);
+}
+
+.text-bubble.hidden {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+    pointer-events: none;
+}
+
+#bubble-text {
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.4;
 }

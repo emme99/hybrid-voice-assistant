@@ -53,7 +53,9 @@ class WebSocketServer:
             self.host, 
             self.port,
             ssl=self.ssl_context,
-            process_request=self.process_request
+            process_request=self.process_request,
+            ping_interval=20,
+            ping_timeout=20
         )
         logger.info(f"WebSocket server running on {self.protocol_scheme}://{self.host}:{self.port}")
         logger.info(f"Client available at https://{self.host}:{self.port}/")
@@ -211,6 +213,15 @@ class WebSocketServer:
             # Send as binary
             await asyncio.gather(
                 *[client.send(audio_data) for client in self.clients],
+                return_exceptions=True
+            )
+
+    async def broadcast_message(self, message_dict: dict):
+        """Broadcast a JSON message to all clients."""
+        if self.clients:
+            payload = json.dumps(message_dict)
+            await asyncio.gather(
+                *[client.send(payload) for client in self.clients],
                 return_exceptions=True
             )
     

@@ -1,6 +1,11 @@
-# Hybrid Voice Assistant 🛰️
+# Hybrid Voice Assistant (ESPHome Protocol)
 
-A zero-hardware **Voice Satellite** for Home Assistant that runs entirely in your browser, backed by a lightweight Python relay server.
+> [!WARNING]
+> **WORK IN PROGRESS**
+> This project is currently in active development. Features may change, and stability is being improved.
+> Use with caution and report any issues!
+
+This project implements a **Hybrid Voice Satellite** that bridges the browser (microphone/audio) with Home Assistant via the **ESPHome Native API**.ly in your browser, backed by a lightweight Python relay server.
 
 **Why "Hybrid"?**
 - **Client (Browser)**: Handles Wake Word detection (openWakeWord) locally via WASM. No audio is sent to the server until the wake word is detected.

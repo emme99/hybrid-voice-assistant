@@ -61,7 +61,9 @@ const elements = {
     iframe: document.getElementById('overlay-iframe'),
     activateFab: document.getElementById('activate-fab'),
     fabVisualizer: document.getElementById('fab-visualizer'),
-    connectionStatus: document.getElementById('connection-status')
+    connectionStatus: document.getElementById('connection-status'),
+    textBubble: document.getElementById('text-bubble'),
+    bubbleText: document.getElementById('bubble-text')
 };
 
 /**
@@ -256,11 +258,12 @@ function connectWebSocket() {
             log('WebSocket disconnected', 'warning');
             updateStatus('ws-status', 'disconnected', 'Disconnected');
             
-            // Attempt reconnection
-            if (STATE.isActive && STATE.reconnectAttempts < STATE.maxReconnectAttempts) {
+            // Attempt reconnection (Infinite with backoff cap)
+            if (STATE.isActive) {
                 STATE.reconnectAttempts++;
-                log(`Reconnecting (attempt ${STATE.reconnectAttempts})...`, 'info');
-                setTimeout(() => connectWebSocket(), 2000 * STATE.reconnectAttempts);
+                const delay = Math.min(2000 * STATE.reconnectAttempts, 10000); // Cap at 10s
+                log(`Reconnecting in ${delay/1000}s...`, 'info');
+                setTimeout(() => connectWebSocket(), delay);
             }
         };
         
@@ -279,6 +282,8 @@ function connectWebSocket() {
         }, 5000);
     });
 }
+
+
 
 /**
  * Handle incoming WebSocket messages
@@ -324,28 +329,58 @@ function handleControlMessage(message) {
                 message.wyoming_connected ? 'connected' : 'disconnected',
                 message.wyoming_connected ? 'Connected' : 'Disconnected'
             );
-            log(`Server status: ${message.clients} clients connected`, 'info');
-            
-            
             // Handle Config if present (Overlay URL)
-            // Priority: Local Config > Server Config
             const targetUrl = CONFIG.overlayUrl || (message.config && message.config.overlay_url);
-            
             if (targetUrl && elements.iframe) {
-                // Only set if different to avoid reload
-                // If local config is set, we might have already set it in init(), but check anyway
-                const currentSrc = elements.iframe.getAttribute('src'); // Use getAttribute to avoid fully qualified URL issues if needed
+                const currentSrc = elements.iframe.getAttribute('src');
                 if (elements.iframe.src !== targetUrl && elements.iframe.src === 'about:blank') {
                     elements.iframe.src = targetUrl;
                     log(`Loaded overlay URL: ${targetUrl}`, 'info');
                 }
             }
             break;
-        default:
-            log(`Unknown message type: ${message.type}`, 'warning');
+        case 'config_update':
+             if (message.wake_word) {
+                 log(`Server updated wake word to: ${message.wake_word}`, 'info');
+                 CONFIG.wakeWord = message.wake_word;
+                 if (elements.wakeWordSelect) elements.wakeWordSelect.value = message.wake_word;
+                 if (STATE.isActive) loadWakeWordModel().catch(console.error);
+             }
+             break;
+        case 'voice_event':
+             handleVoiceEvent(message);
+             break;
     }
 }
 
+/**
+ * Handle voice assistant events (STT/TTS text)
+ */
+function handleVoiceEvent(message) {
+    const eventType = message.event_type;
+    const data = message.data || {};
+    
+    if (eventType === 3) { // STT_START
+        showBubble("Listening...");
+    } else if (eventType === 4) { // STT_END
+        if (data.text) showBubble(`"${data.text}"`);
+    } else if (eventType === 7) { // TTS_START
+        if (data.text) showBubble(data.text);
+    } else if (eventType === 2) { // RUN_END
+        setTimeout(() => hideBubble(), 5000);
+    }
+}
+
+function showBubble(text) {
+    if (elements.bubbleText) {
+        elements.bubbleText.textContent = text;
+        if (elements.textBubble) elements.textBubble.classList.remove('hidden');
+    }
+}
+
+function hideBubble() {
+    if (elements.textBubble) elements.textBubble.classList.add('hidden');
+}
 
 /**
  * Request microphone access
@@ -353,7 +388,6 @@ function handleControlMessage(message) {
 async function requestMicrophone() {
     try {
         log('Requesting microphone access...', 'info');
-        
         STATE.mediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 sampleRate: CONFIG.sampleRate,
@@ -363,14 +397,10 @@ async function requestMicrophone() {
                 autoGainControl: true
             }
         });
-        
         updateStatus('mic-status', 'active', 'Active');
         log('Microphone access granted', 'success');
         
-        // Create audio source
         const source = STATE.audioContext.createMediaStreamSource(STATE.mediaStream);
-        
-        // Connect to audio processing (will be replaced with AudioWorklet)
         await setupAudioProcessing(source);
         
     } catch (error) {
@@ -381,9 +411,6 @@ async function requestMicrophone() {
 /**
  * Setup audio processing for wake word detection
  */
-/**
- * Setup audio processing for wake word detection
- */
 async function setupAudioProcessing(source) {
     try {
         await STATE.audioContext.audioWorklet.addModule('wake-word-processor.js');
@@ -391,15 +418,9 @@ async function setupAudioProcessing(source) {
         
         workletNode.port.onmessage = async (event) => {
             const float32Data = event.data;
+            if (!STATE.isListening) await runWakeWordInference(float32Data);
             
-            // 1. Run Wake Word Inference
-            if (!STATE.isListening) {
-                await runWakeWordInference(float32Data);
-            }
-            
-            // 2. Stream to Server if Listening
             if (STATE.isListening && STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
-                // Convert to Int16 for Wyoming
                 const int16Data = new Int16Array(float32Data.length);
                 for (let i = 0; i < float32Data.length; i++) {
                     const s = Math.max(-1, Math.min(1, float32Data[i]));
@@ -412,18 +433,13 @@ async function setupAudioProcessing(source) {
         source.connect(workletNode);
         workletNode.connect(STATE.audioContext.destination);
         STATE.audioWorkletNode = workletNode;
-        
         log('Audio processing configured (AudioWorklet)', 'info');
     } catch (e) {
         log(`Failed to setup AudioWorklet: ${e.message}`, 'error');
-        // Fallback or re-throw
         throw e;
     }
 }
 
-/**
- * Run ONNX inference on audio chunk
- */
 /**
  * Run ONNX inference on audio chunk
  */
@@ -440,23 +456,17 @@ async function runWakeWordInference(float32Data) {
         let melOutput = melResults[STATE.onnxSessions.mel.outputNames[0]].data;
 
         // Normalization (critical step from voice-satellite-card)
-        // Note: data is a TypedArray, so we iterate to modify or map it
         for (let j = 0; j < melOutput.length; j++) {
             melOutput[j] = (melOutput[j] / 10.0) + 2.0;
         }
 
         // Split 160 features into 5 frames of 32
-        // openWakeWord produces 5 frames per 80ms chunk
         for (let j = 0; j < 5; j++) {
             const frame = melOutput.subarray(j * 32, (j + 1) * 32);
-            STATE.buffers.mel.push(new Float32Array(frame)); // Push copy
+            STATE.buffers.mel.push(new Float32Array(frame));
         }
 
         // Process while we have enough frames (sliding window)
-        // We use a while loop because one chunk might produce enough frames for an embedding
-        // but typically it's 1-to-1 after initial fill.
-        // Logic: accum 5 frames -> check if total >= 76
-        
         while (STATE.buffers.mel.length >= 76) {
              // Flatten Mel Buffer: [76, 32] -> [1, 76, 32, 1]
              const flatMel = new Float32Array(76 * 32);
@@ -466,7 +476,6 @@ async function runWakeWordInference(float32Data) {
              
              // --- 2. Embedding ---
              const embInputName = STATE.onnxSessions.embedding.inputNames[0];
-             // Note: input shape is [1, 76, 32, 1] for newer/standard models
              const melTensor = new ort.Tensor('float32', flatMel, [1, 76, 32, 1]);
              
              const embResults = await STATE.onnxSessions.embedding.run({ [embInputName]: melTensor });
@@ -484,7 +493,6 @@ async function runWakeWordInference(float32Data) {
              
              // --- 4. Wake Word ---
              const item = STATE.onnxSessions.wakeWord; 
-             // Could be multiple models, here just one
              const wwInputName = item.inputNames[0];
              const embTensor = new ort.Tensor('float32', flatEmb, [1, 16, 96]);
              
@@ -499,11 +507,9 @@ async function runWakeWordInference(float32Data) {
              if (probability > 0.5) {
                   log(`Wake word detected! (${(probability * 100).toFixed(1)}%)`, 'success');
                   triggerWakeWord();
-                  // Cooldown handled by triggerWakeWord logic
              }
              
              // Stride: Remove 8 frames from Mel buffer logic
-             // "This logic is from openWakeWord: hop size"
              STATE.buffers.mel.splice(0, 8);
         }
 
@@ -526,8 +532,7 @@ function triggerWakeWord() {
             STATE.ws.send(JSON.stringify({ type: 'wake_detected' }));
         }
         
-        // Stop listening after 5 seconds (or wait for silence event from server ideally)
-        // For now keep the timeout safety
+        // Stop listening after 15 seconds (Safety timeout)
         STATE.silenceTimer = setTimeout(() => {
             if (STATE.isListening) {
                 STATE.isListening = false;
