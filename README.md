@@ -13,8 +13,8 @@ This project implements a **Hybrid Voice Satellite** that bridges the browser (m
 
 ## Features
 - 🗣️ **Wake Word runs locally in-browser** (No constant server streaming).
-- 🔌 **Wyoming Protocol** native integration (Works like any standard satellite).
-- 🔊 **Crystal Clear Audio**: 16kHz upstream, 22kHz downstream with intelligent buffering.
+- 🔌 **ESPHome Native API** integration (Appears as a Voice Assistant device in HA).
+- 🔊 **Crystal Clear Audio**: 16kHz upstream, 16kHz downstream.
 - 🔒 **Secure**: HTTPS/WSS enabled for microphone access.
 - 🚀 **Zero Hardware**: Use any old phone, tablet, or laptop as a voice assistant.
 
@@ -29,11 +29,11 @@ sequenceDiagram
 
     User->>Browser: "Alexa..." (Wake Word)
     Note over Browser: openWakeWord (WASM) detects keyword
-    Browser->>Python Server: Wake Word Detected + Audio Stream
-    Python Server->>Home Assistant: Wyoming: Run Pipeline
-    Python Server->>Home Assistant: Wyoming: Audio Chunk...
-    Home Assistant->>Python Server: Wyoming: Audio Chunk (TTS)
-    Python Server->>Browser: Audio Data
+    Browser->>Python Server: Wake Word Detected + Audio Stream (WebSockets)
+    Python Server->>Home Assistant: ESPHome API: VoiceAssistantRequest (Start)
+    Python Server->>Home Assistant: ESPHome API: VoiceAssistantAudio (Stream)
+    Home Assistant->>Python Server: ESPHome API: VoiceAssistantEvent (TTS)
+    Python Server->>Browser: Audio Data (WebSockets)
     Browser->>User: Plays TTS Response
 ```
 
