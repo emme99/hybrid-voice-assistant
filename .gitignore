@@ -11,7 +11,7 @@ ENV/
 dist/
 build/
 *.log
-!reference_project/config/home-assistant.log
+reference_project/
 
 # Node
 node_modules/
