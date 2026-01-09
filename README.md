@@ -10,6 +10,7 @@ This project implements a **Hybrid Voice Satellite** that bridges the browser (m
 
 ## Features
 - 🗣️ **Wake Word runs locally in-browser** (No constant server streaming).
+  - *Note: Only one wake word can be active at a time (Single Model Loading). Switching between "Alexa" and "Okay Nabu" is supported via Home Assistant or the Web UI.*
 - 🔌 **ESPHome Native API** integration (Appears as a Voice Assistant device in HA).
 - 🔊 **Crystal Clear Audio**: 16kHz upstream, 16kHz downstream.
 - 🔒 **Secure**: HTTPS/WSS enabled for microphone access.
