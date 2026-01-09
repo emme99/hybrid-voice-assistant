@@ -58,10 +58,6 @@ server:
   host: 0.0.0.0
   port: 8765
   auth_token: "my-secret-token" # Token for the browser client
-
-home_assistant:
-  host: 192.168.1.100
-  port: 6053   # ESPHome API Port (Default: 6053)
 ```
 
 **Note:** You must configure Home Assistant to connect to this satellite via the **ESPHome Integration**.
