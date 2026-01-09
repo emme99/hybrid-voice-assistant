@@ -325,9 +325,9 @@ function handleControlMessage(message) {
             }
             break;
         case 'status':
-            updateStatus('wyoming-status', 
-                message.wyoming_connected ? 'connected' : 'disconnected',
-                message.wyoming_connected ? 'Connected' : 'Disconnected'
+            updateStatus('ha-status', 
+                message.ha_connected ? 'connected' : 'disconnected',
+                message.ha_connected ? 'Connected' : 'Disconnected'
             );
             // Handle Config if present (Overlay URL)
             const targetUrl = CONFIG.overlayUrl || (message.config && message.config.overlay_url);

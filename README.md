@@ -1,15 +1,12 @@
 # Hybrid Voice Assistant (ESPHome Protocol)
 
-> [!WARNING]
-> **WORK IN PROGRESS**
-> This project is currently in active development. Features may change, and stability is being improved.
-> Use with caution and report any issues!
+
 
 This project implements a **Hybrid Voice Satellite** that bridges the browser (microphone/audio) with Home Assistant via the **ESPHome Native API**.ly in your browser, backed by a lightweight Python relay server.
 
 **Why "Hybrid"?**
 - **Client (Browser)**: Handles Wake Word detection (openWakeWord) locally via WASM. No audio is sent to the server until the wake word is detected.
-- **Server (Python)**: Acts as a bridge. It receives the audio stream via WebSocket and forwards it to Home Assistant using the **Wyoming Protocol**. It also plays back TTS audio.
+- **Server (Python)**: Acts as a bridge. It receives the audio stream via WebSocket and forwards it to Home Assistant using the **ESPHome Native API**. It also plays back TTS audio.
 
 ## Features
 - 🗣️ **Wake Word runs locally in-browser** (No constant server streaming).
@@ -62,18 +59,15 @@ server:
   port: 8765
   auth_token: "my-secret-token" # Token for the browser client
 
-wyoming:
-  host: 0.0.0.0
-  port: 10700
-
 home_assistant:
   host: 192.168.1.100
-  port: 3000   # Not used directly (We use Wyoming connection from HA side)
+  port: 6053   # ESPHome API Port (Default: 6053)
 ```
 
-**Note:** You must configure Home Assistant to connect to this satellite via the **Wyoming Integration**.
-- Go to HA -> Integrations -> Add Integration -> Wyoming Protocol.
-- host: `IP_OF_THIS_SERVER`, port: `10700`.
+**Note:** You must configure Home Assistant to connect to this satellite via the **ESPHome Integration**.
+- Go to HA -> Integrations -> Add Integration -> ESPHome.
+- Host: `IP_OF_THIS_SERVER`, Port: `6053`.
+- Password: (Leave empty unless configured).
 
 ### 4. Run
 
@@ -94,7 +88,7 @@ The satellite provides two interfaces:
 - **Purpose**: Main control panel for monitoring and debugging.
 - **Features**:
   - Live microphone visualizer.
-  - Connection status indicators (Wyoming, WebSocket, Mic).
+  - Connection status indicators (Home Assistant, WebSocket, Mic).
   - Wake Word selection.
   - Debug logs.
 
