@@ -529,7 +529,10 @@ function triggerWakeWord() {
         
         // Notify server
         if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) {
-            STATE.ws.send(JSON.stringify({ type: 'wake_detected' }));
+            STATE.ws.send(JSON.stringify({ 
+                type: 'wake_detected',
+                wake_word: CONFIG.wakeWord 
+            }));
         }
         
         // Stop listening after 15 seconds (Safety timeout)

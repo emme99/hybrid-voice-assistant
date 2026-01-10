@@ -54,7 +54,7 @@ class ESPHomeProtocolHandler:
             elif msg_type == 92: # VoiceAssistantEventResponse
                  event = pb2.VoiceAssistantEventResponse()
                  event.ParseFromString(data)
-                 _LOGGER.debug("Received VoiceAssistantEvent: type=%s", event.event_type)
+                 _LOGGER.info("Received VoiceAssistantEvent: type=%s", event.event_type)
                  
                  event_data = {}
                  for item in event.data:
@@ -111,18 +111,33 @@ class ESPHomeProtocolHandler:
         if self.protocol:
             self.protocol.send_message(msg, msg_type)
 
+    def _map_ww_to_client(self, ha_ww):
+        """Map HA wake word ID to Client wake word ID."""
+        if ha_ww == "alexa": return "alexa_v0.1"
+        if ha_ww == "okay_nabu": return "okay_nabu_v0.1"
+        return ha_ww # Fallback
+
+    def _map_ww_to_ha(self, client_ww):
+        """Map Client wake word ID to HA wake word ID."""
+        if client_ww == "alexa_v0.1": return "alexa"
+        if client_ww == "okay_nabu_v0.1": return "okay_nabu"
+        return client_ww # Fallback
+
     def initiate_pipeline(self, wake_word: str = None):
         """Tell HA to start the pipeline."""
-        _LOGGER.info("Initiating pipeline with wake word: %s", wake_word)
+        ha_ww = self._map_ww_to_ha(wake_word)
+        _LOGGER.info("Initiating pipeline with wake word: %s (HA ID: %s)", wake_word, ha_ww)
         req = pb2.VoiceAssistantRequest()
         req.start = True
         if wake_word:
-             req.wake_word_phrase = wake_word
+             req.wake_word_phrase = ha_ww
         
         # Flags: USE_VAD(1) | USE_WAKE_WORD(2)
+        # We handle Wake Word locally, so we don't want HA to try and use its WW engine.
+        # Sending flag 0 (or just not setting bit 2) should tell HA to skip WW stage.
         req.flags = 0 
-        if wake_word:
-            req.flags |= 2
+        # if wake_word:
+        #    req.flags |= 2
 
         # Audio settings
         settings = pb2.VoiceAssistantAudioSettings()
@@ -153,11 +168,8 @@ class ESPHomeProtocolHandler:
         mp.key = 1
         mp.name = "Hybrid Voice Assistant Speaker"
         mp.supports_pause = True
-        mp.supports_pause = True
-        mp.feature_flags = 1200653 # From reference: 1 | 4 | 8 | 128 | ... ?
-        # 1200653 = 0x12520D
-        # 0xD = 13 (PAUSE | VOLUME_SET | VOLUME_MUTE)
-        # 0x200 = 512 (PLAY_MEDIA?)
+        # Feature flags: PAUSE | VOLUME_SET | VOLUME_MUTE | PLAY_MEDIA | BROWSE_MEDIA
+        mp.feature_flags = 1200653 
         
         # Add Supported Formats
         fmt = mp.supported_formats.add()
@@ -178,7 +190,6 @@ class ESPHomeProtocolHandler:
         self._send(sel_pipeline, 52) # Correct ID 52
 
 
-
         # Add Switch for Mute
         sw_mute = pb2.ListEntitiesSwitchResponse()
         sw_mute.object_id = "mute"
@@ -188,7 +199,6 @@ class ESPHomeProtocolHandler:
         self._send(sw_mute, 17) # Correct ID 17
         
         # Add Assist Satellite Binary Sensor (or Sensor?)
-        # User said "Assist satellite" -> "Inattivo"
         bs_assist = pb2.ListEntitiesBinarySensorResponse()
         bs_assist.object_id = "assist_active"
         bs_assist.key = 5
@@ -210,6 +220,7 @@ class ESPHomeProtocolHandler:
     async def send_audio_chunk(self, chunk: bytes):
         """Send audio chunk to HA."""
         if self.protocol and self._connected:
+            _LOGGER.debug("Sending audio chunk: %d bytes", len(chunk)) # Too noisy
             msg = pb2.VoiceAssistantAudio()
             msg.data = chunk
             self._send(msg, 106) # ID 106 
@@ -218,27 +229,56 @@ class ESPHomeProtocolHandler:
         """Handle request for current voice assistant configuration."""
         resp = pb2.VoiceAssistantConfigurationResponse()
         
-        # Populate available wake words
+        # Populate available wake words with HA STANDARD IDs
         ww1 = resp.available_wake_words.add()
         ww1.wake_word = "okay_nabu"
+        if hasattr(ww1, "wake_word_id"):
+             ww1.wake_word_id = "okay_nabu"
+        elif hasattr(ww1, "id"):
+             ww1.id = "okay_nabu"
+             
         ww2 = resp.available_wake_words.add()
         ww2.wake_word = "alexa"
+        if hasattr(ww2, "wake_word_id"):
+             ww2.wake_word_id = "alexa"
+        elif hasattr(ww2, "id"):
+             ww2.id = "alexa"
         
         # Set active wake word (Default or currently selected)
-        #Ideally store this in self.current_wake_word
         if not hasattr(self, 'current_wake_word'):
-            self.current_wake_word = "okay_nabu"
-        resp.active_wake_words.append(self.current_wake_word)
+            self.current_wake_word = "okay_nabu_v0.1"
+            
+        # Map Internal Client ID -> HA Standard ID
+        ha_active = self._map_ww_to_ha(self.current_wake_word)
+        resp.active_wake_words.append(ha_active)
         resp.max_active_wake_words = 1
         
         self._send(resp, 122)
 
     def _handle_voice_assistant_set_configuration(self, req):
         """Handle request to set voice assistant configuration."""
-        _LOGGER.info("Received SetConfiguration: wake_word=%s", req.active_wake_word)
-        self.current_wake_word = req.active_wake_word
+        # Note: req.active_wake_words is a list in modern Protocol
+        # _LOGGER.info(f"DEBUG: SetConfig Type: {type(req)}")
+        # _LOGGER.info(f"DEBUG: SetConfig Dir: {dir(req)}")
         
-        # Notify WebSocket client
+        ha_ww = None
+        
+        # Try plural first (Modern)
+        if req.active_wake_words:
+            ha_ww = req.active_wake_words[0]
+            _LOGGER.info("Received SetConfiguration (Plural): wake_word=%s", ha_ww)
+        # Try singular (Legacy/Fallback)
+        elif hasattr(req, 'active_wake_word') and req.active_wake_word:
+             ha_ww = req.active_wake_word
+             _LOGGER.info("Received SetConfiguration (Singular): wake_word=%s", ha_ww)
+        else:
+             _LOGGER.warning("Received SetConfiguration with empty wake words list & no singular field")
+             return
+        
+        # Map HA Standard ID -> Internal Client ID
+        self.current_wake_word = self._map_ww_to_client(ha_ww)
+        
+        # Notify WebSocket client with Client ID
         if self.websocket_server:
             asyncio.run_coroutine_threadsafe(
                 self.websocket_server.broadcast_message({
